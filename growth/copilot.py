@@ -22,7 +22,7 @@ import urllib.request
 from .engine import DEFINITIONS, TABLE_DOCS, Model, calculate
 
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 MAX_STEPS = 10
 TIME_BUDGET_S = 40  # return to the browser before serverless timeouts; it resumes the turn
 
