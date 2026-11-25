@@ -226,16 +226,59 @@ def _gemini_schema(s):
     return out
 
 
+_GEMINI = {"model": GEMINI_MODEL, "others": None}  # the model that last worked, and alternatives discovered from the API
+
+
+def _gemini_post(model, body):
+    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                                 data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+    with urllib.request.urlopen(req, timeout=90) as r:
+        return json.loads(r.read())
+
+
+def _gemini_alternatives():
+    """Other text models this key can call, 'flash' models first. Used when the configured one is retired or busy."""
+    if _GEMINI["others"] is None:
+        try:
+            req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200", headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"]})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                models = json.loads(r.read()).get("models", [])
+            names = [m["name"].split("/", 1)[-1] for m in models if "generateContent" in (m.get("supportedGenerationMethods") or [])]
+            skip = ("image", "tts", "audio", "embedding", "live", "vision", "robotics", "computer", "learnlm", "gemma", "nano")
+            names = [n for n in names if n.startswith("gemini") and not any(w in n for w in skip)]
+            _GEMINI["others"] = sorted(names, key=lambda n: ("flash" not in n, "lite" in n, "preview" in n or "exp" in n, [-ord(ch) for ch in n]))
+        except Exception:
+            _GEMINI["others"] = []
+    return [n for n in _GEMINI["others"] if n != _GEMINI["model"]]
+
+
 def _gemini_step(system, messages):
     body = {"systemInstruction": {"parts": [{"text": system}]}, "contents": messages,
             "tools": [{"functionDeclarations": [{"name": t["name"], "description": t["description"], "parameters": _gemini_schema(t["input_schema"])} for t in TOOLS]}]}
-    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent",
-                                 data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
-    try:
-        with urllib.request.urlopen(req, timeout=90) as r:
-            data = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        raise RuntimeError(f"Gemini API error {e.code}: {e.read().decode(errors='replace')[:400]}")
+    data, last = None, ""
+    candidates = [_GEMINI["model"]]
+    for model in candidates:
+        if len(candidates) > 5 and model == candidates[5]:
+            break
+        for attempt in range(2):  # the free tier often answers 503 (busy) or 429 (rate limit): wait once, then try another model
+            try:
+                data = _gemini_post(model, body)
+                break
+            except urllib.error.HTTPError as e:
+                last = f"Gemini API error {e.code} on {model}: {e.read().decode(errors='replace')[:300]}"
+                if e.code in (429, 500, 503) and attempt == 0:
+                    time.sleep(2)
+                    continue
+                if e.code not in (404, 429, 500, 503):
+                    raise RuntimeError(last)
+                break
+        if data is not None:
+            _GEMINI["model"] = model
+            break
+        if len(candidates) == 1:
+            candidates += _gemini_alternatives()[:4]
+    if data is None:
+        raise RuntimeError("The Gemini models are busy, rate-limited or unavailable right now. Wait a few seconds and send the question again. (" + last[:200] + ")")
     cand = (data.get("candidates") or [{}])[0]
     parts = (cand.get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts if "text" in p and not p.get("thought"))
