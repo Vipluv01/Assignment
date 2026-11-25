@@ -22,7 +22,7 @@ import urllib.request
 from .engine import DEFINITIONS, TABLE_DOCS, Model, calculate
 
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
 MAX_STEPS = 10
 TIME_BUDGET_S = 40  # return to the browser before serverless timeouts; it resumes the turn
 
@@ -265,7 +265,7 @@ def _gemini_step(system, messages):
             except urllib.error.HTTPError as e:
                 last = f"Gemini API error {e.code} on {model}: {e.read().decode(errors='replace')[:300]}"
                 tried.append(f"{model}: {e.code}")
-                if e.code in (429, 500, 503) and attempt == 0:
+                if e.code in (500, 503) and attempt == 0 and model == candidates[0]:
                     time.sleep(2)
                     continue
                 if e.code not in (404, 429, 500, 503):
@@ -275,7 +275,7 @@ def _gemini_step(system, messages):
             _GEMINI["model"] = model
             break
         if len(candidates) == 1:
-            candidates += _gemini_alternatives()[:6]
+            candidates += _gemini_alternatives()[:14]
     if data is None:
         raise RuntimeError("The Gemini models are busy (503) or over this key's quota (429) right now. Wait a minute and send the question again. Tried " + "; ".join(dict.fromkeys(tried)))
     cand = (data.get("candidates") or [{}])[0]
