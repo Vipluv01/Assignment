@@ -34,4 +34,24 @@ assert res[1]["rows"][0]["visitors"] == 2057                            # ad-hoc
 assert "does not exist" in res[2]["error"] and seen[2].get("is_error")  # missing field is reported, not invented
 assert abs(res[3]["result"] - 133.658) < 0.01
 assert r["proposals"][0]["title"].startswith("Add T-1") and "waiting" in res[4]["proposals"][0]["status"]
+
+# guardrails: figures with no tool call are sent back once; an empty answer is sent back once
+def scripted(replies):
+    log = []
+    def step(system, messages):
+        log.append(messages[-1]["content"] if isinstance(messages[-1]["content"], str) else "tool results")
+        kind, val = replies.pop(0)
+        if kind == "call":
+            return {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": val, "input": {}}]}, "", [{"id": "t1", "name": val, "args": {}}]
+        return {"role": "assistant", "content": [{"type": "text", "text": val or " "}]}, val, []
+    copilot._claude_step = step
+    return log
+log = scripted([("text", "Campus Ambassadors brought 842 visitors."), ("call", "get_campaign_performance"), ("text", "Campus Ambassadors: 390 verified visitors as of 20 Apr.")])
+r = copilot.chat({"as_of": "2025-04-20", "user_text": "top source?"})
+assert "390" in r["reply"] and "842" not in r["reply"] and log[1].startswith("[app check] Your answer states numbers") and len(r["trace"]) == 1
+log = scripted([("text", "The data has no college field, so it cannot answer that.")])
+assert copilot.chat({"as_of": "2025-04-20", "user_text": "which college?"})["reply"].startswith("The data has no college")
+log = scripted([("call", "get_decisions"), ("text", ""), ("text", "Paid Social is on STOP; the task is waiting for your confirmation.")])
+r = copilot.chat({"as_of": "2025-03-20", "user_text": "why stop?"})
+assert r["reply"].startswith("Paid Social") and log[2].startswith("[app check] You returned no text")
 print("copilot loop checks passed")

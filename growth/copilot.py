@@ -344,12 +344,25 @@ def chat(payload: dict) -> dict:
     if text:
         messages.append({"role": "user", "content": text} if provider == "claude" else {"role": "user", "parts": [{"text": text}]})
     system = system_prompt(model, as_of, team)
-    start = time.time()
+    start, nudged = time.time(), set()
     try:
         for _ in range(MAX_STEPS):
             msg, reply, calls = step(system, messages)
             messages.append(msg)
             if not calls:
+                # Guardrails enforced in code, not left to the model: an answer may not be empty, and may not
+                # state figures in a turn where no tool was called. One corrective retry each.
+                fix = None
+                if not reply.strip() and "empty" not in nudged:
+                    nudged.add("empty")
+                    fix = "You returned no text. Write your answer to the user now, using the tool results above. If you proposed actions, say they are waiting for confirmation."
+                elif text and not trace and "ungrounded" not in nudged and re.search(r"\d[\d,.]*\d|\d+\s*%", re.sub(r"20\d\d(-\d\d-\d\d)?|\b\d{1,2} [A-Z][a-z]{2}\b|\bC\d\d\b|T-\d+", "", reply)):
+                    nudged.add("ungrounded")
+                    fix = ("Your answer states numbers but you called no tool in this turn, so they are not grounded in the current data. "
+                           "Call the tools needed and answer again with only figures the tools return. If the data cannot answer, say so and give no figures.")
+                if fix:
+                    messages.append({"role": "user", "content": "[app check] " + fix} if provider == "claude" else {"role": "user", "parts": [{"text": "[app check] " + fix}]})
+                    continue
                 return {"provider": provider, "messages": messages, "done": True, "reply": reply, "proposals": proposals, "trace": trace}
             results = []
             for c in calls:

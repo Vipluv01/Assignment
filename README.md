@@ -7,7 +7,7 @@ Submission for the RISA Labs Growth APM assignment, **Challenge A (Attendee Grow
 | Deliverable | Where |
 |---|---|
 | Three-slide strategy PDF | [docs/Growth_Strategy_3_Slides.pdf](docs/Growth_Strategy_3_Slides.pdf) |
-| Working product (dashboard, campaign and task management, embedded AI copilot) | this repository; run locally with one command, or deploy (see below) |
+| Working product (dashboard, campaign and task management, embedded AI copilot) | **https://growth-center.onrender.com** (free hosting: the first load after a quiet spell takes up to a minute) |
 | README | this file |
 | Original data, kept for chatbot testing | [data/original/Attendee Dataset.xlsx](data/original/Attendee%20Dataset.xlsx) |
 
@@ -30,7 +30,7 @@ With no key the chat panel falls back to a small rule-based analyst and says so 
 
 Deploying for a public link:
 
-- **Any host that runs a Python process** (Render, Railway, Fly, a VM): start command `python3 server.py`; it reads `PORT`. This is the same code path as local.
+- **Render** (what the live link uses): `render.yaml` is a blueprint; New > Blueprint, pick the repository, set the key under Environment. Any other host that runs `python3 server.py` works the same way; it reads `PORT`.
 - **Vercel**: `vercel.json`, `api/dashboard.py` and `api/chat.py` are included (static files from `web/`, Python functions for the two endpoints). Set the key as an environment variable. *This configuration has not been deployed or tested; see Known limitations.*
 
 Tests: `python3 tests/test_engine.py` and `python3 tests/test_copilot_loop.py`.
@@ -144,6 +144,7 @@ Changes are saved in the browser (`localStorage`) and sent with every request; t
 - Tools never return rows later than the dashboard date and apply the counting rules above.
 - An unknown field returns an error listing the real fields, which is how it learns the data cannot answer something. The prompt lists what the dataset does not contain (demographics, colleges, revenue, unique reach, causation).
 - Each answer has a "Data used" disclosure showing the queries it ran.
+- Two guardrails are enforced in code, not left to the model: an answer that states figures in a turn where no tool was called is sent back once for a grounded retry, and so is an empty answer. Both were added after live testing showed the model doing exactly that.
 - `propose_actions` drafts tasks or campaign changes as cards. Nothing is saved until the user clicks Confirm; the outcome is fed back to the model on the next turn.
 
 ### One complete workflow to demo
@@ -163,9 +164,12 @@ Done:
 - `tests/test_copilot_loop.py`: the copilot's tool loop with a scripted stand-in for the model: tools see team changes, a missing field comes back as an error, proposals are returned for confirmation.
 - All five tabs rendered in headless Chrome and inspected; the rule-based chat path exercised end to end in the browser.
 
+- Live on the deployed site with Gemini (`gemini-3-flash-preview`, free tier): a metric question (2,050 visitors against a goal of 2,200, via `get_overview`), a question the data cannot answer (college of attendees), a task request (proposal card with owner, due date and evidence), and a question after changing the data (300 logged walk-ins moved the answer to 2,350 and "goal met").
+
 Not done:
 
-- **No live model call was made** (no API key was available while building). The Claude and Gemini request code is written from documentation and is untested against the real APIs.
+- The Claude path has never been run against the real API (no Anthropic key was available). Only the Gemini path has.
+- The two guardrails were added after the live tests above and are covered by the scripted test only.
 - Clicking through forms and dialogs was not automated; the pages were checked by rendering only.
 - The Vercel configuration has not been deployed.
 
@@ -177,6 +181,8 @@ Not done:
 - No templates or third-party UI libraries. Chart colours follow a published colour-blind-safe reference palette.
 
 ## Known limitations
+
+- The live copilot runs on a free Gemini key. Newer Gemini models were over quota or busy for this key, so the app uses `gemini-3-flash-preview` and falls back through other models; under heavy testing the free allowance can run out, and the app then says the model is busy.
 
 - Saved changes live in one browser. There are no accounts and no shared team state; a database (for example Supabase) would be the next step.
 - The dataset is historical, so "live" operation is simulated by the dashboard date and by logging entries.
