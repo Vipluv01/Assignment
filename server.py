@@ -24,7 +24,7 @@ if env.exists():
 
 from growth import service  # noqa: E402  (after .env so the provider is detected)
 
-ROUTES = {"/api/dashboard": service.dashboard, "/api/chat": service.chat}
+ROUTES = {"/api/dashboard": service.dashboard, "/api/chat": service.chat, "/api/ai-check": lambda payload: service.copilot.gemini_check()}
 
 
 class Handler(BaseHTTPRequestHandler):

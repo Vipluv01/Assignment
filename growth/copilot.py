@@ -255,17 +255,16 @@ def _gemini_alternatives():
 def _gemini_step(system, messages):
     body = {"systemInstruction": {"parts": [{"text": system}]}, "contents": messages,
             "tools": [{"functionDeclarations": [{"name": t["name"], "description": t["description"], "parameters": _gemini_schema(t["input_schema"])} for t in TOOLS]}]}
-    data, last = None, ""
+    data, last, tried = None, "", []
     candidates = [_GEMINI["model"]]
     for model in candidates:
-        if len(candidates) > 5 and model == candidates[5]:
-            break
         for attempt in range(2):  # the free tier often answers 503 (busy) or 429 (rate limit): wait once, then try another model
             try:
                 data = _gemini_post(model, body)
                 break
             except urllib.error.HTTPError as e:
                 last = f"Gemini API error {e.code} on {model}: {e.read().decode(errors='replace')[:300]}"
+                tried.append(f"{model}: {e.code}")
                 if e.code in (429, 500, 503) and attempt == 0:
                     time.sleep(2)
                     continue
@@ -276,9 +275,9 @@ def _gemini_step(system, messages):
             _GEMINI["model"] = model
             break
         if len(candidates) == 1:
-            candidates += _gemini_alternatives()[:4]
+            candidates += _gemini_alternatives()[:6]
     if data is None:
-        raise RuntimeError("The Gemini models are busy, rate-limited or unavailable right now. Wait a few seconds and send the question again. (" + last[:200] + ")")
+        raise RuntimeError("The Gemini models are busy (503) or over this key's quota (429) right now. Wait a minute and send the question again. Tried " + "; ".join(dict.fromkeys(tried)))
     cand = (data.get("candidates") or [{}])[0]
     parts = (cand.get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts if "text" in p and not p.get("thought"))
@@ -286,6 +285,24 @@ def _gemini_step(system, messages):
     if not parts:
         text = f"The model returned no answer (finish reason: {cand.get('finishReason', 'unknown')})."
     return {"role": "model", "parts": parts or [{"text": text}]}, text, calls  # parts returned verbatim (keeps thought signatures)
+
+
+def gemini_check() -> dict:
+    """Diagnostic: which Gemini models this key can list, and whether a one-word request to each candidate succeeds."""
+    if not os.environ.get("GEMINI_API_KEY"):
+        return {"error": "GEMINI_API_KEY is not set"}
+    _GEMINI["others"] = None
+    names = [GEMINI_MODEL] + [n for n in _gemini_alternatives() if n != GEMINI_MODEL]
+    out = []
+    for n in names[:10]:
+        try:
+            _gemini_post(n, {"contents": [{"role": "user", "parts": [{"text": "Reply with the single word: ok"}]}]})
+            out.append({"model": n, "status": 200})
+        except urllib.error.HTTPError as e:
+            out.append({"model": n, "status": e.code, "detail": e.read().decode(errors="replace")[:160]})
+        except Exception as e:
+            out.append({"model": n, "status": type(e).__name__})
+    return {"configured": GEMINI_MODEL, "in_use": _GEMINI["model"], "listed": _GEMINI["others"], "probe": out}
 
 
 def _gemini_results(calls, results):
