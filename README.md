@@ -175,10 +175,19 @@ Not done:
 
 ## Tools used
 
-- **Claude Code** (Anthropic's coding agent) wrote the code, the strategy model, the slides and this README, and ran the verification above. Replace or extend this line with how you directed and reviewed the work.
-- Python 3 standard library for the server and engine; the `anthropic` SDK for the Claude path; Gemini over REST.
-- Build-time only: `openpyxl` (workbook to JSON, `scripts/build_data.py`), `reportlab` (slides, `scripts/build_slides.py "Your Name"`), pandas and PyMuPDF for checking.
-- No templates or third-party UI libraries. Chart colours follow a published colour-blind-safe reference palette.
+| Tool | Plan | Used for |
+|---|---|---|
+| Claude Code (Anthropic's AI coding agent) | Paid subscription | Wrote the code, the strategy model, the slides and this README from the assignment brief and dataset, and ran the checks listed under Verification |
+| Google AI Studio, Gemini API (`gemini-3-flash-preview`) | Free tier | The model behind the live copilot |
+| Render | Free web service | Hosting the live app |
+| GitHub | Free | Source repository; Render deploys from it |
+| Python 3 standard library | Open source | Server and analytics engine (no web framework) |
+| `anthropic` Python SDK | Open source | Optional Claude path for the copilot (not used on the live site) |
+| `openpyxl`, `reportlab`, pandas, PyMuPDF | Open source | Build time only: workbook to JSON, slide PDF, independent number checks |
+
+**Who did what.** The analysis, strategy, code and documents were generated with Claude Code. I (Vipluv Kumar) supplied the brief and dataset, created the GitHub repository, the Render service and the Gemini API key, deployed the app, and worked through the live copilot failures with the agent (retired model, quota limits, an ungrounded answer) until it answered correctly on the deployed site.
+
+**Reused, modified, verified.** No templates, starter kits or third-party UI libraries were used; the front end is plain HTML, CSS and JavaScript. Chart colours follow a published colour-blind-safe reference palette. What was verified, and what was not, is listed under Verification.
 
 ## Known limitations
 
