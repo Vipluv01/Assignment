@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Growth Center · CampusFest attendee growth</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <strong>Growth Center</strong>
+    <span id="eventName" class="muted"></span>
+  </div>
+  <nav id="tabs" class="tabs" role="tablist">
+    <button data-tab="measure" class="on">Measure</button>
+    <button data-tab="diagnose">Diagnose</button>
+    <button data-tab="decide">Decide</button>
+    <button data-tab="execute">Execute</button>
+    <button data-tab="data">Data</button>
+  </nav>
+  <div class="asof">
+    <label for="asOf">Dashboard date</label>
+    <input type="date" id="asOf">
+    <span id="presets" class="presets"></span>
+    <button id="chatToggle" class="ghost">Copilot</button>
+  </div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<div class="layout">
+  <main id="view" aria-live="polite"><p class="muted pad">Loading…</p></main>
+
+  <aside id="chat" class="chat">
+    <div class="chat-head">
+      <div><strong>Growth copilot</strong> <span id="aiMode" class="pill"></span></div>
+      <button id="chatClear" class="ghost small" title="Start a new conversation">New chat</button>
+    </div>
+    <div id="chatLog" class="chat-log"></div>
+    <div id="chatSuggest" class="suggest"></div>
+    <form id="chatForm" class="chat-form">
+      <textarea id="chatInput" rows="2" placeholder="Ask about performance, or ask me to create a task…"></textarea>
+      <button id="chatSend" type="submit">Send</button>
+    </form>
+  </aside>
+</div>
+
+<div id="tip" class="tip" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<dialog id="dlg"></dialog>
+<script src="app.js"></script>
+</body>
+</html>

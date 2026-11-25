@@ -1,0 +1,16 @@
+# Render blueprint: New > Blueprint > pick this repository.
+services:
+  - type: web
+    name: growth-center
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 server.py
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: QUIET
+        value: "1"
+      - key: ANTHROPIC_API_KEY   # or delete this and add GEMINI_API_KEY instead
+        sync: false
